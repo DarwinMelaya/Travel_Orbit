@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { api } from "../../config/api";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Background slider state
   const [bgImageIndex, setBgImageIndex] = useState(0);
@@ -34,13 +37,28 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
 
-    // TODO: Implement actual login logic
-    setTimeout(() => {
+    try {
+      const { data } = await api.post("/auth/login", { email, password });
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // Redirect to UserLandingPage if role is "customer" (or "user")
+      if (data.user.role === "customer" || data.user.role === "user") {
+        const from = location.state?.from?.pathname || "/user/landing-page";
+        navigate(from, { replace: true });
+      } else {
+        // Admin or other roles - redirect to home
+        navigate("/", { replace: true });
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Login failed. Please try again."
+      );
+    } finally {
       setIsLoading(false);
-      // Navigate to landing page after successful login
-      navigate("/user/landing-page");
-    }, 1000);
+    }
   };
 
   return (
@@ -138,6 +156,11 @@ const Login = () => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="rounded-[14px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {error}
+              </div>
+            )}
             {/* Email Input */}
             <div>
               <label
